@@ -29,6 +29,12 @@ import cv2
 import numpy as np
 import sklearn
 
+# Ready to use yuv like NVIDIA if BGR doesn't work out
+def read_image_yuv(image_loc)
+	img = cv2.imread(image_loc)
+	img_yuv = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+	return img_yuv
+
 # Generator allows training data to be read in as needed for the batches
 def generator(samples, batch_size=32):
 	num_samples = len(samples)
@@ -89,20 +95,26 @@ model = Sequential()
 model.add(Lambda(	lambda x: (x / 255.0) - 0.5, input_shape=input_shape))
 
 # set up cropping2D layer to remove horizon and car hood artifacts from input
-model.add(Cropping2D(cropping=((70,20), (0,0)), input_shape=input_shape)) # in-(160x320) -> out-(66x320)
+model.add(Cropping2D(cropping=((70,20), (0,0)), input_shape=input_shape)) # in-(160x320) -> out-(70x320x3)
 
 # Implement the Nvidia CNN in Keras
-model.add(Convolution2D(24,5,5,subsample=(2,2),border_mode="valid",activation="relu"))
-model.add(Convolution2D(36,5,5,subsample=(2,2),border_mode="valid",activation="relu"))
-model.add(Convolution2D(48,5,5,subsample=(2,2),border_mode="valid",activation="relu"))
-model.add(Convolution2D(64,3,3,subsample=(1,1),border_mode="valid",activation="relu"))
-model.add(Convolution2D(64,3,3,subsample=(1,1),border_mode="valid",activation="relu"))
-model.add(Flatten())
-model.add(Dense(1164))
-model.add(Dense(100))
-model.add(Dense(50))
-model.add(Dense(10))
-model.add(Dense(1))
+# (W−F+2P)/S+1
+# x:(70-5)/2 + 1 = 65/2 + 1 = 33, y:(320-5)/2 + 1 = 315/2 + 1 = 158
+model.add(Convolution2D(24,5,5,subsample=(2,2),border_mode="valid",activation="relu")) # -> out-(33 x 158x24)
+# x:(33-5)/2 + 1 = 28/2 + 1 = 15, y:(158-5)/2 + 1 = 153/2 + 1 = 77 
+model.add(Convolution2D(36,5,5,subsample=(2,2),border_mode="valid",activation="relu")) # -> out-(15 x  77x36)
+# x:(15-5)/2 + 1 = 10/2 + 1 = 6, y:(77-5)/2 + 1 = 72/2 + 1 = 37 
+model.add(Convolution2D(48,5,5,subsample=(2,2),border_mode="valid",activation="relu")) # -> out-( 6 x  37x48)
+# x:(6-3)/2 + 1 = 3/1 + 1 = 4, y:(37-3)/2 + 1 = 34/1 + 1 = 35  
+model.add(Convolution2D(64,3,3,subsample=(1,1),border_mode="valid",activation="relu")) # -> out-( 4 x  35x64)
+# x:(4-3)/2 + 1 = 1/1 + 1 = 2, y:(35-3)/2 + 1 = 32/1 + 1 = 33  
+model.add(Convolution2D(64,3,3,subsample=(1,1),border_mode="valid",activation="relu")) # -> out-( 2 x  33x64)
+model.add(Flatten()) # -> out-(4224)
+model.add(Dense(1164)) # -> out-(1164)
+model.add(Dense(100)) # -> out-(100)
+model.add(Dense(50)) # -> out-(50)
+model.add(Dense(10)) # -> out-(10)
+model.add(Dense(1)) # -> out-(1)
 
 # Mean squared error loss and ADAM (A Method for Stochastic Optimization) optimizer
 # ADAM Paper can be found here: http://arxiv.org/abs/1412.6980v8

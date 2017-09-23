@@ -5,6 +5,7 @@ import argparse
 import os
 import glob
 
+# WIP code to make MP4's from the training data sections
 
 def main():
     parser = argparse.ArgumentParser(description='Create driving video.')
